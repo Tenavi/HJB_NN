@@ -40,7 +40,7 @@ class config_prototype:
             'BFGS_opts': {}
             }
 
-    def build_layers(N_states, time_dependent, N_layers, N_neurons):
+    def build_layers(self, N_states, time_dependent, N_layers, N_neurons):
         layers = [N_states] + N_layers * [N_neurons] + [1]
 
         if time_dependent:

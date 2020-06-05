@@ -14,19 +14,19 @@ How this repository is organized:
 
   * train.py: train NNs to model the value function
 
-  * test_time_march.py, test_warm_start.py: test the reliability and speed of time-marching and NN warm start
-
   * simulate.py: simulate the closed-loop dynamics of a system and compare with BVP solution.
   
   * simulate_noise.py: simulate the closed-loop dynamics with a zero-order-hold and measurement noise.
 
   * predict_value.py: use a NN to predict the value function on a grid.
+  
+  * test_time_march.py, test_warm_start.py: test the reliability and speed of time-marching and NN warm start
 
 ### examples/:
 
 #### *This is the only folder with settings that need to be adjusted*
 
-This folder contains examples of problems each in their own folder. Each of these folders must contain a file called **problem_def.py** which defines the dynamics, optimal control, and various other settings. The examples/ folder also contains
+This folder contains examples of problems each in their own folder. Each of these folders must contain a file called **problem_def.py** which defines the dynamics, optimal control, and various other settings. Data, NN models, and simulation results are all found here. The examples/ folder also contains
 
   * choose_problem.py: modify this script to tell other scripts which problem to solve_bvp
 
