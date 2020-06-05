@@ -82,6 +82,6 @@ if save_me:
     save_dict.update({'weights': weights,
                       'biases': biases,
                       'train_time': train_time,
-                      'val_grad_err': errors[4],
-                      'val_ctrl_err': errors[5]})
+                      'val_grad_err': errors[4][-1],
+                      'val_ctrl_err': errors[5][-1]})
     scipy.io.savemat(model_path, save_dict)
