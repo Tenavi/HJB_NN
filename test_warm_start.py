@@ -1,3 +1,8 @@
+'''
+This script tests the NN warm start method for solving BVPs.
+It uses the initial conditions provided in examples/<system>/X0_pool.mat.
+'''
+
 import numpy as np
 import scipy.stats
 from scipy.integrate import solve_ivp, solve_bvp
@@ -16,6 +21,8 @@ if time_dependent:
 else:
     from utilities.neural_networks import hjb_network_t0 as hjb_network
     system += '/t0'
+
+# Loads the pre-trained NN
 
 parameters, scaling, NN_stats = load_NN(
     'examples/' + system + '/V_model.mat', return_stats=True)

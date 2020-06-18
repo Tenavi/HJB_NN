@@ -1,3 +1,7 @@
+'''
+Contains frequently used utility scripts.
+'''
+
 import numpy as np
 from scipy.io import loadmat
 

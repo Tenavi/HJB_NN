@@ -1,8 +1,14 @@
+'''
+This script provides common functions used to help define optimal control
+problems, as well as prototype classes to base new problems on.
+'''
+
 import numpy as np
 from scipy.integrate import cumtrapz, solve_ivp
 
 class config_prototype:
     def __init__(self, N_states, time_dependent):
+        '''Class defining problem and training parameters.'''
         N_layers = 3
         N_neurons = 64
         self.layers = self.build_layers(N_states,
@@ -29,7 +35,8 @@ class config_prototype:
         # Standard deviation of measurement noise
         self.sigma = 1e-02
 
-        # Dimensions to plot in value prediction
+        # Which dimensions to plot when predicting value function V(0,x)?
+        # (unspecified dimensions are held at mean value)
         self.plotdims = [0,1]
 
         # Number of training trajectories
@@ -73,6 +80,7 @@ class problem_prototype:
         raise NotImplementedError
 
     def make_LQR(self, F, G, Q, Rinv, P1):
+        '''Solves the Riccati ODE for this OCP.'''
         GRG = G @ Rinv @ G.T
         def riccati_ODE(t, p):
             P = p.reshape(F.shape)
@@ -84,6 +92,7 @@ class problem_prototype:
         return SOL.sol
 
     def U_LQR(self, t, X):
+        '''Evaluates the LQR controller for this OCP.'''
         t = np.reshape(t, (1,))
         P = self.P(t).reshape(self.N_states, self.N_states)
         return self.RG @ P @ X
@@ -111,6 +120,7 @@ class problem_prototype:
         return self.terminal_cost(X[:,-1]) + J[0,-1] + L[0,-1] - J
 
     def Hamiltonian(self, t, X_aug):
+        '''Evaluates the Hamiltonian for this OCP.'''
         U = self.U_star(X_aug)
         L = self.running_cost(X_aug[:self.N_states], U)
 

@@ -1,3 +1,7 @@
+'''
+Contains tools to interface TensorFlow with Scipy's L-BFGS.
+'''
+
 from tensorflow.contrib.opt import ExternalOptimizerInterface
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import gradients

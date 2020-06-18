@@ -1,6 +1,6 @@
 ## Adaptive deep learning for high-dimensional Hamilton-Jacobi-Bellman equations
 
-See the paper at [https://arxiv.org/abs/1907.05317](https://arxiv.org/abs/1907.05317).
+See the paper at [https://arxiv.org/abs/1907.05317](https://arxiv.org/abs/1907.05317v4).
 
 #### Software recommendations:
 
@@ -15,11 +15,11 @@ How this repository is organized:
   * train.py: train NNs to model the value function
 
   * simulate.py: simulate the closed-loop dynamics of a system and compare with BVP solution.
-  
+
   * simulate_noise.py: simulate the closed-loop dynamics with a zero-order-hold and measurement noise.
 
   * predict_value.py: use a NN to predict the value function on a grid.
-  
+
   * test_time_march.py, test_warm_start.py: test the reliability and speed of time-marching and NN warm start
 
 ### examples/:

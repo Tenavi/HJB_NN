@@ -1,3 +1,8 @@
+'''
+This script tests the time-marching method for solving BVPs.
+It uses the initial conditions provided in examples/<system>/X0_pool.mat.
+'''
+
 import numpy as np
 import scipy.stats
 from scipy.integrate import solve_bvp

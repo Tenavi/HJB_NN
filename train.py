@@ -1,3 +1,8 @@
+'''
+Run this script to train the NN. Loads the problem and configuration
+according to examples/choose_problem.py.
+'''
+
 import numpy as np
 import tensorflow as tf
 import scipy.io
@@ -15,6 +20,8 @@ np.random.seed(config.random_seeds['train'])
 tf.set_random_seed(config.random_seeds['train'])
 
 # ---------------------------------------------------------------------------- #
+
+##### Loads data sets #####
 
 train_data = scipy.io.loadmat('examples/' + system + '/data_train.mat')
 val_data = scipy.io.loadmat('examples/' + system + '/data_val.mat')
@@ -40,6 +47,7 @@ print('')
 # ---------------------------------------------------------------------------- #
 
 ##### Builds and trains the neural net #####
+
 model_path = 'examples/' + system + '/V_model.mat'
 
 if int_input('Load pre-trained model? Enter 0 for no, 1 for yes:'):

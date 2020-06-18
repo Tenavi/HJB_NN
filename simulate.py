@@ -1,3 +1,8 @@
+'''
+This script runs a closed-loop simulation where the controller is continuous
+and is allowed continuous, noise-free measurements.
+'''
+
 import numpy as np
 from scipy.integrate import solve_ivp, solve_bvp
 import scipy.io
@@ -14,16 +19,22 @@ else:
     from utilities.neural_networks import hjb_network_t0 as hjb_network
     system += '/t0'
 
+# Loads pre-trained NN for control
+
 parameters, scaling = load_NN('examples/' + system + '/V_model.mat')
 
 model = hjb_network(problem, scaling, config, parameters)
 model.run_initializer()
+
+# Initializes some parameters
 
 t1 = config.t1
 N_states = problem.N_states
 
 if len(sys.argv) > 1:
     np.random.seed(int(sys.argv[1]))
+
+# Generates the initial condition
 
 if system[:7] == 'burgers':
     X0 = -2. * np.sin(problem.xi * np.pi)
@@ -79,14 +90,18 @@ save_dict.update({'LQR_time': time.time() - start_time, 'X_LQR': X, 'U_LQR': U})
 
 # ---------------------------------------------------------------------------- #
 
+NN_cost = problem.compute_cost(
+    save_dict['t'], save_dict['X_NN'], save_dict['U_NN'])[0,0]
+LQR_cost = problem.compute_cost(
+    save_dict['t'], save_dict['X_LQR'], save_dict['U_LQR'])[0,0]
+
 print('')
-print('NN cost: %.4f' % (problem.compute_cost(save_dict['t'],
-                                              save_dict['X_NN'],
-                                              save_dict['U_NN'])[0,0]))
-print('LQR cost: %.4f' % (problem.compute_cost(save_dict['t'],
-                                               save_dict['X_LQR'],
-                                               save_dict['U_LQR'])[0,0]))
-print('Optimal cost: %.4f' % (save_dict['V_BVP'][0,0]))
+print('NN cost: %.2f' % (NN_cost),
+    ' (%.2f' % (100.*(NN_cost/save_dict['V_BVP'][0,0] - 1.)), '% suboptimal)')
+print('LQR cost: %.2f' % (LQR_cost),
+    ' (%.2f' % (100.*(LQR_cost/save_dict['V_BVP'][0,0] - 1.)), '% suboptimal)')
+print('Optimal cost: %.2f' % (save_dict['V_BVP'][0,0]))
+
 try:
     save_dict.update({'xi': problem.xi})
 except:

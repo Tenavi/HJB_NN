@@ -1,3 +1,7 @@
+'''
+This script predicts the value function at initial time on a grid.
+'''
+
 import numpy as np
 import scipy.io
 import time
@@ -30,8 +34,10 @@ Nm = [100,100]
 
 Nout = np.prod(Nm)
 
+# Plots mean value of x if not part of plotdims
 X = np.tile((ub + lb)/2., (1, Nout))
 
+# Makes a meshgrid out of plotdims
 X_mesh = []
 for d in range(len(plotdims)):
     X_mesh.append(np.linspace(lb[plotdims[d]], ub[plotdims[d]], Nm[d]))

@@ -1,3 +1,7 @@
+'''
+This script generates data from scratch using time-marching.
+'''
+
 import numpy as np
 import scipy.stats
 from scipy.integrate import solve_bvp
@@ -24,6 +28,7 @@ else:
 Ns = config.Ns[data_type]
 X0_pool = problem.sample_X0(Ns)
 
+# Arrays to store generated data
 t_OUT = np.empty((1,0))
 X_OUT = np.empty((N_states,0))
 A_OUT = np.empty((N_states,0))
@@ -89,6 +94,8 @@ while N_sol < Ns:
 
         N_fail += 1
 
+# ---------------------------------------------------------------------------- #
+
 sol_time = np.sum(sol_time)
 fail_time = np.sum(fail_time)
 
@@ -105,6 +112,8 @@ if N_fail >= 1:
 print('')
 print('Total data generated:', X_OUT.shape[1])
 print('')
+
+# ---------------------------------------------------------------------------- #
 
 save_data = int_input('Save data? Enter 0 for no, 1 for yes:')
 

@@ -1,3 +1,8 @@
+'''
+This script contains the classes implementing neural networks modeling V(t,x)
+and V(0,x). These are hjb_network and hjb_network_t0, respectively.
+'''
+
 import numpy as np
 import tensorflow as tf
 import scipy.stats as stats
@@ -6,7 +11,7 @@ import time
 
 class hjb_network:
     def __init__(self, problem, scaling, config, parameters=None):
-        '''Class implementing a NN for modeling infinite horizon value functions.
+        '''Class implementing a NN for modeling time-dependent value functions.
         problem: instance of a problem class
         scaling: dictionary with 8 components:
             'lb' and 'ub',
@@ -36,9 +41,10 @@ class hjb_network:
         N_controls = problem.N_controls
         self.t1 = config.t1
 
+        # Initializes the NN parameters
         self.weights, self.biases = self.initialize_net(config.layers, parameters)
 
-        # Builds computational graph
+        # Defines placeholders for passing inputs and data
         self.t_tf = tf.placeholder(tf.float32, shape=(1, None))
         self.X_tf = tf.placeholder(tf.float32, shape=(N_states, None))
         self.A_tf = tf.placeholder(tf.float32, shape=(N_states, None))
@@ -49,6 +55,7 @@ class hjb_network:
         self.U_scaled_tf = tf.placeholder(tf.float32, shape=(N_controls, None))
         self.V_scaled_tf = tf.placeholder(tf.float32, shape=(1, None))
 
+        # Builds the computational graph
         V_pred_scaled, self.V_pred = self.make_eval_graph(self.t_tf, self.X_tf)
         self.dVdX = tf.gradients(self.V_pred, self.X_tf)[0]
         self.U = self.problem.make_U_NN(self.dVdX)
@@ -201,21 +208,32 @@ class hjb_network:
 
         # ----------------------------------------------------------------------
 
+        # Options to be passed to L-BFGS
+        # This should be a dictionary of lists of options to use in each round.
         BFGS_opts = options.pop('BFGS_opts', {})
 
+        # Minimum and maximum number of rounds to train for
         min_rounds = options.pop('min_rounds', 1)
         max_rounds = options.pop('max_rounds', 1)
+
+        # Convergence tolerance
         conv_tol = options.pop('conv_tol', 1e-03)
 
+        # Initial and maximum batch sizes
         self.Ns = options.pop('batch_size', train_data['X'].shape[1])
         Ns_max = options.pop('max_batch_size', 32768)
 
-        Ns_cand = options.pop('Ns_cand', 2)
+        # Scaling factor to limit growth of batch size
         Ns_C = options.pop('Ns_C', 2)
 
+        # Number of candidate samples in adaptive sampling
+        Ns_cand = options.pop('Ns_cand', 2)
+
+        # Weight on the gradient loss term
         weight_A = options.pop('weight_A', np.zeros(max_rounds))
         self.weight_A_tf = tf.placeholder(tf.float32, shape=())
 
+        # Weight on the control loss term (not used in paper)
         weight_U = options.pop('weight_U', np.zeros(max_rounds))
         self.weight_U_tf = tf.placeholder(tf.float32, shape=())
 
@@ -247,19 +265,14 @@ class hjb_network:
         # ----------------------------------------------------------------------
 
         for round in range(1,max_rounds+1):
+            # Generates new data if needed
             if self.Ns > train_data['X'].shape[1]:
                 new_data = self.generate_data(
                     self.Ns - train_data['X'].shape[1], Ns_cand)
-                train_data.update({
-                't': np.hstack((train_data['t'], new_data['t'])),
-                'X': np.hstack((train_data['X'], new_data['X'])),
-                'A': np.hstack((train_data['A'], new_data['A'])),
-                'U': np.hstack((train_data['U'], new_data['U'])),
-                'V': np.hstack((train_data['V'], new_data['V'])),
-                'A_scaled': np.hstack((train_data['A_scaled'], new_data['A_scaled'])),
-                'U_scaled': np.hstack((train_data['U_scaled'], new_data['U_scaled'])),
-                'V_scaled': np.hstack((train_data['V_scaled'], new_data['V_scaled']))
-                })
+                for key in new_data.keys():
+                    train_data.update({
+                        key: np.hstack((train_data[key], new_data[key]))
+                        })
 
             self.Ns = np.minimum(self.Ns, Ns_max)
 
@@ -346,8 +359,14 @@ class hjb_network:
                         errors_to_track=[],
                         fetches=[],
                         options={}):
+        '''
+        Interface for L-BFGS optimizer. Allows reusing an instantiated
+        optimizer so that gradients etc. do not have to be recomputed each
+        training round.
+        '''
         from utilities.optimize import ScipyOptimizerInterface
 
+        # Minimizes with L-BFGS
         if optimizer is None:
             default_opts = {'maxcor': 15, 'ftol': 1e-11, 'gtol': 1e-06,
                             'iprint': 95, 'maxfun': 100000, 'maxiter': 100000}
@@ -566,21 +585,32 @@ class hjb_network_t0(hjb_network):
 
         # ----------------------------------------------------------------------
 
+        # Options to be passed to L-BFGS
+        # This should be a dictionary of lists of options to use in each round.
         BFGS_opts = options.pop('BFGS_opts', {})
 
+        # Minimum and maximum number of rounds to train for
         min_rounds = options.pop('min_rounds', 1)
         max_rounds = options.pop('max_rounds', 1)
+
+        # Convergence tolerance
         conv_tol = options.pop('conv_tol', 1e-03)
 
+        # Initial and maximum batch sizes
         self.Ns = options.pop('batch_size', train_data['X'].shape[1])
         Ns_max = options.pop('max_batch_size', 8192)
 
-        Ns_cand = options.pop('Ns_cand', 2)
+        # Scaling factor to limit growth of batch size
         Ns_C = options.pop('Ns_C', 2)
 
+        # Number of candidate samples in adaptive sampling
+        Ns_cand = options.pop('Ns_cand', 2)
+
+        # Weight on the gradient loss term
         weight_A = options.pop('weight_A', np.zeros(max_rounds))
         self.weight_A_tf = tf.placeholder(tf.float32, shape=())
 
+        # Weight on the control loss term (not used in paper)
         weight_U = options.pop('weight_U', np.zeros(max_rounds))
         self.weight_U_tf = tf.placeholder(tf.float32, shape=())
 
@@ -612,18 +642,14 @@ class hjb_network_t0(hjb_network):
         # ----------------------------------------------------------------------
 
         for round in range(1,max_rounds+1):
+            # Generates new data if needed
             if self.Ns > train_data['X'].shape[1]:
                 new_data = self.generate_data(
                     self.Ns - train_data['X'].shape[1], Ns_cand)
-                train_data.update({
-                'X': np.hstack((train_data['X'], new_data['X'])),
-                'A': np.hstack((train_data['A'], new_data['A'])),
-                'U': np.hstack((train_data['U'], new_data['U'])),
-                'V': np.hstack((train_data['V'], new_data['V'])),
-                'A_scaled': np.hstack((train_data['A_scaled'], new_data['A_scaled'])),
-                'U_scaled': np.hstack((train_data['U_scaled'], new_data['U_scaled'])),
-                'V_scaled': np.hstack((train_data['V_scaled'], new_data['V_scaled']))
-                })
+                for key in new_data.keys():
+                    train_data.update({
+                        key: np.hstack((train_data[key], new_data[key]))
+                        })
 
             self.Ns = np.minimum(self.Ns, Ns_max)
 
@@ -647,6 +673,7 @@ class hjb_network_t0(hjb_network):
                        self.weight_A_tf: weight_A[round-1],
                        self.weight_U_tf: weight_U[round-1]}
 
+            # Minimizes with L-BFGS
             _BFGS_opts = {}
             for key in BFGS_opts.keys():
                 _BFGS_opts[key] = BFGS_opts[key][round-1]

@@ -1,3 +1,8 @@
+'''
+This script runs a closed-loop simulation where the controller is implemented
+using a zero-order-hold (ZOH) and has measurement noise.
+'''
+
 import numpy as np
 from scipy.integrate import solve_bvp
 import scipy.io
@@ -13,10 +18,14 @@ else:
     from utilities.neural_networks import hjb_network_t0 as hjb_network
     system += '/t0'
 
+# Loads pre-trained NN for control
+
 parameters, scaling = load_NN('examples/' + system + '/V_model.mat')
 
 model = hjb_network(problem, scaling, config, parameters)
 model.run_initializer()
+
+# Initializes some parameters
 
 t1 = config.t1
 N_states = problem.N_states
@@ -28,6 +37,8 @@ Nt = t.shape[0]
 if len(sys.argv) > 1:
     np.random.seed(int(sys.argv[1]))
 
+# Generates the initial condition
+
 if system[:7] == 'burgers':
     X0 = -2. * np.sin(problem.xi * np.pi)
 else:
@@ -35,6 +46,8 @@ else:
     max_idx = model.get_largest_A(np.zeros((1, X0.shape[1])), X0, 1)
     X0 = X0[:, max_idx[-1]]
 bc = problem.make_bc(X0)
+
+# Samples Gaussian noise with variance defined in config
 
 W = config.sigma * np.random.randn(N_states, Nt)
 
@@ -53,6 +66,7 @@ def RK4_step(f, t, X, U_fun, W):
     U_eval = U_fun(t.reshape(1,1), np.reshape(X+W, (-1,1)))
     U = lambda t, X: U_eval
 
+    # M = 4 steps of RK4 for each sample taken
     M = 4
     _dt = dt/M
     t0 = np.copy(t)
@@ -68,7 +82,7 @@ def RK4_step(f, t, X, U_fun, W):
 
     return X1
 
-# Integrates the closed-loop system (NN & LQR controllers, Euler's method)
+# Integrates the closed-loop system (NN & LQR controllers, RK4)
 
 for k in range(1,Nt):
     X_NN[:,k] = RK4_step(
@@ -101,14 +115,18 @@ save_dict.update({'BVP_success': SOL.success,
 
 # ---------------------------------------------------------------------------- #
 
+NN_cost = problem.compute_cost(
+    save_dict['t'], save_dict['X_NN'], save_dict['U_NN'])[0,0]
+LQR_cost = problem.compute_cost(
+    save_dict['t'], save_dict['X_LQR'], save_dict['U_LQR'])[0,0]
+
 print('')
-print('NN cost: %.4f' % (problem.compute_cost(save_dict['t'],
-                                              save_dict['X_NN'],
-                                              save_dict['U_NN'])[0,0]))
-print('LQR cost: %.4f' % (problem.compute_cost(save_dict['t'],
-                                               save_dict['X_LQR'],
-                                               save_dict['U_LQR'])[0,0]))
-print('Optimal cost: %.4f' % (save_dict['V_BVP'][0,0]))
+print('NN cost: %.2f' % (NN_cost),
+    ' (%.2f' % (100.*(NN_cost/save_dict['V_BVP'][0,0] - 1.)), '% suboptimal)')
+print('LQR cost: %.2f' % (LQR_cost),
+    ' (%.2f' % (100.*(LQR_cost/save_dict['V_BVP'][0,0] - 1.)), '% suboptimal)')
+print('Optimal cost: %.2f' % (save_dict['V_BVP'][0,0]))
+
 try:
     save_dict.update({'xi': problem.xi})
 except:

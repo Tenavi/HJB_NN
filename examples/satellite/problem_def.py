@@ -29,7 +29,8 @@ class config_NN (config_prototype):
         # Standard deviation of measurement noise
         self.sigma = np.pi * 1e-02
 
-        # Dimensions to plot in value prediction
+        # Which dimensions to plot when predicting value function V(0,x)?
+        # (unspecified dimensions are held at mean value)
         self.plotdims = [0,3]
 
         # Number of training trajectories
