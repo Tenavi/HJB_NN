@@ -1,5 +1,5 @@
 import numpy as np
-from examples.problem_def_template import problem_prototype
+from examples.problem_def_template import config_prototype, problem_prototype
 
 class config_NN (config_prototype):
     def __init__(self, N_states, time_dependent):
