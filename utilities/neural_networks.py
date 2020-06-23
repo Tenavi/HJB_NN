@@ -5,7 +5,6 @@ and V(0,x). These are hjb_network and hjb_network_t0, respectively.
 
 import numpy as np
 import tensorflow as tf
-import scipy.stats as stats
 from scipy.integrate import solve_ivp, solve_bvp
 import time
 
@@ -101,20 +100,22 @@ class hjb_network:
             self.sess.run(tf.global_variables_initializer())
 
     def initialize_net(self, layers, parameters):
-        '''Xavier initialization for weights and biases.'''
+        '''
+        Creates Tensorflow variables for NN parameters. These are initialized
+        with existing values if provided in the parameters argument.
+        If not provided, then they are initialized with Xavier initialization.
+        '''
         weights, biases = [], []
         if parameters is None:
-            def xavier_init(size_in, size_out):
+            def weight_init(size_in, size_out):
                 # Initializes a single set of weights for layer (l) from layer (l-1).
-                # Weights are picked randomly from a truncated normal distribution
-                std = np.sqrt(6. / (size_in + size_out))
-                init = stats.truncnorm.rvs(-3.0*std, 3.0*std,
-                                           scale=std, size=(size_out, size_in))
+                # Weights are picked randomly from a normal distribution
+                std = np.sqrt(2. / (size_in + size_out))
+                init = std * np.random.randn(size_out, size_in)
                 return tf.Variable(init, dtype=tf.float32)
 
             for l in range(len(layers) - 1):
-                weights.append(xavier_init(layers[l], layers[l+1]))
-                biases.append(tf.Variable(tf.zeros((layers[l+1], 1), dtype=tf.float32)))
+                weights.append(weight_init(layers[l], layers[l+1]))
         else:
             for l in range(len(parameters['weights'])):
                 weights.append(tf.Variable(parameters['weights'][l], dtype=tf.float32))
