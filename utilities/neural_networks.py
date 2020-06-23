@@ -107,7 +107,7 @@ class hjb_network:
         '''
         weights, biases = [], []
         if parameters is None:
-            def weight_init(size_in, size_out):
+            def xavier_init(size_in, size_out):
                 # Initializes a single set of weights for layer (l) from layer (l-1).
                 # Weights are picked randomly from a normal distribution
                 std = np.sqrt(2. / (size_in + size_out))
@@ -115,7 +115,8 @@ class hjb_network:
                 return tf.Variable(init, dtype=tf.float32)
 
             for l in range(len(layers) - 1):
-                weights.append(weight_init(layers[l], layers[l+1]))
+                weights.append(xavier_init(layers[l], layers[l+1]))
+                biases.append(tf.Variable(tf.zeros((layers[l+1], 1), dtype=tf.float32)))
         else:
             for l in range(len(parameters['weights'])):
                 weights.append(tf.Variable(parameters['weights'][l], dtype=tf.float32))
