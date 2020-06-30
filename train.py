@@ -67,7 +67,7 @@ start_time = time.time()
 
 model = hjb_network(problem, scaling, config, parameters)
 
-iters, errors = model.train(train_data, val_data, config.training_opts)
+iters, errors = model.train(train_data, val_data)
 
 train_time = time.time() - start_time
 print('Computation time: %.0f' % (train_time), 'sec')

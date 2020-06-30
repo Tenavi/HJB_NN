@@ -36,11 +36,35 @@ class config_NN (config_prototype):
         # Number of training trajectories
         self.Ns = {'train': 64, 'val': 1000}
 
-        self.training_opts = {
-            'batch_size': 64,
-            'weight_A': [10.],
-            'BFGS_opts': {}
-            }
+        ##### Options for training #####
+
+        # Number of data points to use in first training rounds
+        # Set to None to use whole data set
+        self.batch_size = 64
+
+        # Maximum factor to increase data set size each round
+        self.Ns_scale = 2
+        # Number of candidate points to pick from when selecting large gradient
+        # points during adaptive sampling
+        self.Ns_cand = 2
+        # Maximum size of batch size to use
+        self.Ns_max = 8192
+
+        # Convergence tolerance parameter (see paper)
+        self.conv_tol = 1e-03
+
+        # maximum and minimum number of training rounds
+        self.max_rounds = 1
+        self.min_rounds = 1
+
+        # List or array of weights on gradient term, length = max_rounds
+        self.weight_A = [10.]
+        # List or array of weights on control learning term, not used in paper
+        self.weight_U = [0.]
+
+        # Dictionary of options to be passed to L-BFGS-B optimizer
+        # Leave empty for default values
+        self.BFGS_opts = {}
 
 class setup_problem(problem_prototype):
     def __init__(self):

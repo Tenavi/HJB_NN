@@ -82,14 +82,12 @@ class hjb_network:
         self.MAE = tf.reduce_mean(tf.abs(self.V_pred - self.V_tf))
         self.grad_MRL2 = tf.reduce_mean(tf.sqrt(
             tf.reduce_sum((self.dVdX - self.A_tf)**2, axis=0) / (
-            0.01 + tf.sqrt(tf.reduce_sum(self.A_tf**2, axis=0))
+            0.01 + tf.reduce_sum(self.A_tf**2, axis=0)))
             )
-            ))
         self.ctrl_MRL2 = tf.reduce_mean(tf.sqrt(
             tf.reduce_sum((self.U - self.U_tf)**2, axis=0) / (
-            0.01 + tf.sqrt(tf.reduce_sum(self.U_tf**2, axis=0))
+            0.01 + tf.reduce_sum(self.U_tf**2, axis=0)))
             )
-        ))
 
         self.sess = None
 
@@ -188,7 +186,7 @@ class hjb_network:
         else:
             return self.sess.run((self.V_pred, self.dVdX), feed_dict)
 
-    def train(self, train_data, val_data, options):
+    def train(self, train_data, val_data):
         '''Implements training with L-BFGS.'''
 
         train_data.update({
@@ -210,33 +208,24 @@ class hjb_network:
 
         # ----------------------------------------------------------------------
 
-        # Options to be passed to L-BFGS
-        # This should be a dictionary of lists of options to use in each round.
-        BFGS_opts = options.pop('BFGS_opts', {})
+        # Gets training options from configuration file
+        self.Ns = self.config.batch_size
+        if self.Ns is None:
+            self.Ns = train_data['X'].shape[1]
 
-        # Minimum and maximum number of rounds to train for
-        min_rounds = options.pop('min_rounds', 1)
-        max_rounds = options.pop('max_rounds', 1)
+        Ns_C = self.config.Ns_scale
+        Ns_cand = self.config.Ns_cand
+        Ns_max = self.config.Ns_max
 
-        # Convergence tolerance
-        conv_tol = options.pop('conv_tol', 1e-03)
+        conv_tol = self.config.conv_tol
 
-        # Initial and maximum batch sizes
-        self.Ns = options.pop('batch_size', train_data['X'].shape[1])
-        Ns_max = options.pop('max_batch_size', 32768)
+        max_rounds = self.config.max_rounds
+        min_rounds = self.config.min_rounds
 
-        # Scaling factor to limit growth of batch size
-        Ns_C = options.pop('Ns_C', 2)
-
-        # Number of candidate samples in adaptive sampling
-        Ns_cand = options.pop('Ns_cand', 2)
-
-        # Weight on the gradient loss term
-        weight_A = options.pop('weight_A', np.zeros(max_rounds))
+        weight_A = self.config.weight_A
         self.weight_A_tf = tf.placeholder(tf.float32, shape=())
 
-        # Weight on the control loss term (not used in paper)
-        weight_U = options.pop('weight_U', np.zeros(max_rounds))
+        weight_U = self.config.weight_U
         self.weight_U_tf = tf.placeholder(tf.float32, shape=())
 
         self.loss = self.loss_V
@@ -299,15 +288,15 @@ class hjb_network:
                        self.weight_A_tf: weight_A[round-1],
                        self.weight_U_tf: weight_U[round-1]}
 
-            _BFGS_opts = {}
-            for key in BFGS_opts.keys():
-                _BFGS_opts[key] = BFGS_opts[key][round-1]
+            BFGS_opts = {}
+            for key in self.config.BFGS_opts.keys():
+                BFGS_opts[key] = self.config.BFGS_opts[key][round-1]
 
             optimizer = self._train_L_BFGS_B(tf_dict,
                 optimizer=optimizer,
                 errors_to_track=errors_to_track,
                 fetches=fetches,
-                options=_BFGS_opts)
+                options=BFGS_opts)
 
             # ------------------------------------------------------------------
 
@@ -565,7 +554,7 @@ class hjb_network_t0(hjb_network):
         else:
             return self.sess.run((self.V_pred, self.dVdX), {self.X_tf: X})
 
-    def train(self, train_data, val_data, options):
+    def train(self, train_data, val_data):
         '''Implements training with L-BFGS.'''
 
         train_data.update({
@@ -587,33 +576,24 @@ class hjb_network_t0(hjb_network):
 
         # ----------------------------------------------------------------------
 
-        # Options to be passed to L-BFGS
-        # This should be a dictionary of lists of options to use in each round.
-        BFGS_opts = options.pop('BFGS_opts', {})
+        # Gets training options from configuration file
+        self.Ns = self.config.batch_size
+        if self.Ns is None:
+            self.Ns = train_data['X'].shape[1]
 
-        # Minimum and maximum number of rounds to train for
-        min_rounds = options.pop('min_rounds', 1)
-        max_rounds = options.pop('max_rounds', 1)
+        Ns_C = self.config.Ns_scale
+        Ns_cand = self.config.Ns_cand
+        Ns_max = self.config.Ns_max
 
-        # Convergence tolerance
-        conv_tol = options.pop('conv_tol', 1e-03)
+        conv_tol = self.config.conv_tol
 
-        # Initial and maximum batch sizes
-        self.Ns = options.pop('batch_size', train_data['X'].shape[1])
-        Ns_max = options.pop('max_batch_size', 8192)
+        max_rounds = self.config.max_rounds
+        min_rounds = self.config.min_rounds
 
-        # Scaling factor to limit growth of batch size
-        Ns_C = options.pop('Ns_C', 2)
-
-        # Number of candidate samples in adaptive sampling
-        Ns_cand = options.pop('Ns_cand', 2)
-
-        # Weight on the gradient loss term
-        weight_A = options.pop('weight_A', np.zeros(max_rounds))
+        weight_A = self.config.weight_A
         self.weight_A_tf = tf.placeholder(tf.float32, shape=())
 
-        # Weight on the control loss term (not used in paper)
-        weight_U = options.pop('weight_U', np.zeros(max_rounds))
+        weight_U = self.config.weight_U
         self.weight_U_tf = tf.placeholder(tf.float32, shape=())
 
         self.loss = self.loss_V
@@ -676,15 +656,15 @@ class hjb_network_t0(hjb_network):
                        self.weight_U_tf: weight_U[round-1]}
 
             # Minimizes with L-BFGS
-            _BFGS_opts = {}
-            for key in BFGS_opts.keys():
-                _BFGS_opts[key] = BFGS_opts[key][round-1]
+            BFGS_opts = {}
+            for key in self.config.BFGS_opts.keys():
+                BFGS_opts[key] = self.config.BFGS_opts[key][round-1]
 
             optimizer = self._train_L_BFGS_B(tf_dict,
                 optimizer=optimizer,
                 errors_to_track=errors_to_track,
                 fetches=fetches,
-                options=_BFGS_opts)
+                options=BFGS_opts)
 
             # ------------------------------------------------------------------
 
