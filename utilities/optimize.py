@@ -1,5 +1,12 @@
 '''
 Contains tools to interface TensorFlow with Scipy's L-BFGS.
+Modifies the ExternalOptimizerInterace from
+
+https://github.com/tensorflow/tensorflow/blob/r1.11/
+    tensorflow/contrib/opt/python/training/external_optimizer.py
+
+to allow reusing of pre-compiled gradient graphs and easy access
+to evaluations of the minimized loss function and gradient.
 '''
 
 from tensorflow.contrib.opt import ExternalOptimizerInterface
