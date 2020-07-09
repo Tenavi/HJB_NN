@@ -83,11 +83,11 @@ class hjb_network:
         self.MAE = tf.reduce_mean(tf.abs(self.V_pred - self.V_tf))
         self.grad_MRL2 = tf.reduce_mean(tf.sqrt(
             tf.reduce_sum((self.dVdX - self.A_tf)**2, axis=0) / (
-            0.01 + tf.reduce_sum(self.A_tf**2, axis=0)))
+            1e-04 + tf.reduce_sum(self.A_tf**2, axis=0)))
             )
         self.ctrl_MRL2 = tf.reduce_mean(tf.sqrt(
             tf.reduce_sum((self.U - self.U_tf)**2, axis=0) / (
-            0.01 + tf.reduce_sum(self.U_tf**2, axis=0)))
+            1e-04 + tf.reduce_sum(self.U_tf**2, axis=0)))
             )
 
         self.sess = tf.Session()
@@ -225,9 +225,9 @@ class hjb_network:
         self.weight_U_tf = tf.placeholder(tf.float32, shape=())
 
         self.loss = self.loss_V
-        if weight_A[0] >= 10.0 * np.finfo(float).eps:
+        if np.any(weight_A >= 10. * np.finfo(float).eps):
             self.loss = self.loss + self.weight_A_tf * self.loss_A
-        if weight_U[0] >= 10.0 * np.finfo(float).eps:
+        if np.any(weight_U >= 10. * np.finfo(float).eps):
             self.loss = self.loss + self.weight_U_tf * self.loss_U
 
         # ----------------------------------------------------------------------
@@ -305,7 +305,7 @@ class hjb_network:
 
             # If didn't track training errors, compute them now
             for error,fetch in zip((train_err,train_grad_err,train_ctrl_err),
-                               (self.MRAE, self.grad_MRL2, self.ctrl_MRL2)):
+                               (self.MAE, self.grad_MRL2, self.ctrl_MRL2)):
                 if error not in errors_to_track:
                     error.append(self.sess.run(fetch, tf_dict))
 
@@ -526,23 +526,23 @@ class hjb_network_t0(hjb_network):
 
     def predict_V(self, t, X):
         '''Run a TensorFlow Session to predict the value function at arbitrary
-        space-time coordinates.'''
+        points.'''
         return self.sess.run(self.V_pred, {self.X_tf: X})
 
     def predict_A(self, t, X):
         '''Run a TensorFlow Session to predict the value gradient at arbitrary
-        space-time coordinates.'''
+        points.'''
         return self.sess.run(self.dVdX, {self.X_tf: X})
 
     def get_largest_A(self, t, X, N):
-        '''Partially sorts space-time points by the predicted gradient norm.'''
+        '''Partially sorts points by the predicted gradient norm.'''
         _, max_idx = self.sess.run(self.largest_dVdX,
                                    {self.k_largest: N,
                                     self.X_tf: X})
         return max_idx
 
     def eval_U(self, t, X):
-        '''(Near-)optimal feedback control for arbitrary inputs (t,X).'''
+        '''(Near-)optimal feedback control for arbitrary inputs x.'''
         return self.sess.run(self.U, {self.X_tf: X}).astype(np.float64)
 
     def bvp_guess(self, t, X, eval_U=False):
@@ -596,9 +596,9 @@ class hjb_network_t0(hjb_network):
         self.weight_U_tf = tf.placeholder(tf.float32, shape=())
 
         self.loss = self.loss_V
-        if weight_A[0] >= 10.0 * np.finfo(float).eps:
+        if np.any(weight_A >= 10. * np.finfo(float).eps):
             self.loss = self.loss + self.weight_A_tf * self.loss_A
-        if weight_U[0] >= 10.0 * np.finfo(float).eps:
+        if np.any(weight_U >= 10. * np.finfo(float).eps):
             self.loss = self.loss + self.weight_U_tf * self.loss_U
 
         # ----------------------------------------------------------------------
@@ -676,7 +676,7 @@ class hjb_network_t0(hjb_network):
 
             # If didn't track training errors, compute them now
             for error,fetch in zip((train_err,train_grad_err,train_ctrl_err),
-                               (self.MRAE, self.grad_MRL2, self.ctrl_MRL2)):
+                               (self.MAE, self.grad_MRL2, self.ctrl_MRL2)):
                 if error not in errors_to_track:
                     error.append(self.sess.run(fetch, tf_dict))
 
