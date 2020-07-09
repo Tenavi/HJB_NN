@@ -40,13 +40,13 @@ class config_NN (config_prototype):
 
         # Number of data points to use in first training rounds
         # Set to None to use whole data set
-        self.batch_size = 64
+        self.batch_size = None
 
         # Maximum factor to increase data set size each round
         self.Ns_scale = 2
         # Number of candidate points to pick from when selecting large gradient
         # points during adaptive sampling
-        self.Ns_cand = 2
+        self.Ns_cand = 1
         # Maximum size of batch size to use
         self.Ns_max = 8192
 
@@ -62,7 +62,8 @@ class config_NN (config_prototype):
         # List or array of weights on control learning term, not used in paper
         self.weight_U = [0.]
 
-        # Dictionary of options to be passed to L-BFGS-B optimizer
+        # Dictionary of lists or arrays of options to be passed to L-BFGS-B
+        # The length of each list should be = max_rounds
         # Leave empty for default values
         self.BFGS_opts = {}
 

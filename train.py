@@ -75,9 +75,11 @@ print('Computation time: %.0f' % (train_time), 'sec')
 # ---------------------------------------------------------------------------- #
 
 save_dict = {'train_time': train_time, 'round_iters': iters,
-             'train_err': errors[0], 'train_grad_err': errors[1],
+             'train_err': errors[0],
+             'train_grad_err': errors[1],
              'train_ctrl_err': errors[2],
-             'val_err': errors[3], 'val_grad_err': errors[4],
+             'val_err': errors[3],
+             'val_grad_err': errors[4],
              'val_ctrl_err': errors[5]}
 scipy.io.savemat('examples/' + system + '/results/train_results.mat', save_dict)
 

@@ -68,7 +68,8 @@ class config_prototype:
         # List or array of weights on control learning term, not used in paper
         self.weight_U = np.zeros(self.max_rounds)
 
-        # Dictionary of options to be passed to L-BFGS-B optimizer
+        # Dictionary of lists or arrays of options to be passed to L-BFGS-B
+        # The length of each list should be = max_rounds
         # Leave empty for default values
         self.BFGS_opts = {}
 

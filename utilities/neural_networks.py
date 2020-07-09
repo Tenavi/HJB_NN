@@ -5,6 +5,7 @@ and V(0,x). These are hjb_network and hjb_network_t0, respectively.
 
 import numpy as np
 import tensorflow as tf
+from scipy import stats
 from scipy.integrate import solve_ivp, solve_bvp
 import time
 
@@ -89,13 +90,12 @@ class hjb_network:
             0.01 + tf.reduce_sum(self.U_tf**2, axis=0)))
             )
 
-        self.sess = None
+        self.run_initializer()
 
     def run_initializer(self):
         '''Separate Tensorflow initializer function.'''
-        if self.sess is None:
-            self.sess = tf.Session()
-            self.sess.run(tf.global_variables_initializer())
+        self.sess = tf.Session()
+        self.sess.run(tf.global_variables_initializer())
 
     def initialize_net(self, layers, parameters):
         '''
@@ -307,6 +307,12 @@ class hjb_network:
                   ', loss_A = %1.1e' % (loss_A),
                   ', loss_U = %1.1e' % (loss_U))
 
+            # If didn't track training errors, compute them now
+            for error,fetch in zip((train_err,train_grad_err,train_ctrl_err),
+                               (self.MRAE, self.grad_MRL2, self.ctrl_MRL2)):
+                if error not in errors_to_track:
+                    error.append(self.sess.run(fetch, tf_dict))
+
             round_iters.append(len(train_err))
 
             val_errs = self.sess.run(
@@ -339,9 +345,8 @@ class hjb_network:
                         print('Convergence test satisfied, but have not trained for minimum number of rounds.')
                         self.Ns *= Ns_C
 
-        errors = (np.array(train_err), np.array(train_grad_err),
-                  np.array(train_ctrl_err), np.array(val_err),
-                  np.array(val_grad_err), np.array(val_ctrl_err))
+        errors = (train_err, train_grad_err, train_ctrl_err,
+                  val_err, val_grad_err, val_ctrl_err)
         return round_iters, errors
 
     def _train_L_BFGS_B(self,
@@ -371,8 +376,6 @@ class hjb_network:
         def callback(fetches):
             for error_list, fetch in zip(errors_to_track, fetches):
                 error_list.append(fetch)
-
-        self.run_initializer()
 
         optimizer.minimize(self.sess, feed_dict=tf_dict,
                            fetches=fetches, loss_callback=callback)
@@ -475,7 +478,7 @@ class hjb_network:
 
                 X_aug_guess = np.vstack((SOL.y, A_guess, V_guess))
                 SOL = solve_bvp(self.problem.aug_dynamics, bc, SOL.t, X_aug_guess,
-                                verbose=0,
+                                verbose=1,
                                 tol=self.config.data_tol,
                                 max_nodes=self.config.max_nodes)
                 if not SOL.success:
@@ -675,6 +678,12 @@ class hjb_network_t0(hjb_network):
                   ', loss_A = %1.1e' % (loss_A),
                   ', loss_U = %1.1e' % (loss_U))
 
+            # If didn't track training errors, compute them now
+            for error,fetch in zip((train_err,train_grad_err,train_ctrl_err),
+                               (self.MRAE, self.grad_MRL2, self.ctrl_MRL2)):
+                if error not in errors_to_track:
+                    error.append(self.sess.run(fetch, tf_dict))
+
             round_iters.append(len(train_err))
 
             val_errs = self.sess.run(
@@ -707,9 +716,8 @@ class hjb_network_t0(hjb_network):
                         print('Convergence test satisfied, but have not trained for minimum number of rounds.')
                         self.Ns *= Ns_C
 
-        errors = (np.array(train_err), np.array(train_grad_err),
-                  np.array(train_ctrl_err), np.array(val_err),
-                  np.array(val_grad_err), np.array(val_ctrl_err))
+        errors = (train_err, train_grad_err, train_ctrl_err,
+                  val_err, val_grad_err, val_ctrl_err)
         return round_iters, errors
 
     def convergence_test(self, tf_dict, sample_grad, epsilon, Ns_sub=1024, C=2):
@@ -799,7 +807,7 @@ class hjb_network_t0(hjb_network):
 
                 X_aug_guess = np.vstack((SOL.y, A_guess, V_guess))
                 SOL = solve_bvp(self.problem.aug_dynamics, bc, SOL.t, X_aug_guess,
-                                verbose=0,
+                                verbose=1,
                                 tol=self.config.data_tol,
                                 max_nodes=self.config.max_nodes)
                 if not SOL.success:
