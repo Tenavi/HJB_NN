@@ -29,7 +29,6 @@ parameters, scaling, NN_stats = load_NN(
 train_time, val_grad_err, val_ctrl_err = NN_stats
 
 model = hjb_network(problem, scaling, config, parameters)
-model.run_initializer()
 
 np.seterr(over='warn', divide='warn', invalid='warn')
 warnings.filterwarnings('error')

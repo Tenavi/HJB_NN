@@ -90,10 +90,6 @@ class hjb_network:
             0.01 + tf.reduce_sum(self.U_tf**2, axis=0)))
             )
 
-        self.run_initializer()
-
-    def run_initializer(self):
-        '''Separate Tensorflow initializer function.'''
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 

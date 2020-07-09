@@ -24,7 +24,6 @@ else:
 parameters, scaling = load_NN('examples/' + system + '/V_model.mat')
 
 model = hjb_network(problem, scaling, config, parameters)
-model.run_initializer()
 
 # Initializes some parameters
 
