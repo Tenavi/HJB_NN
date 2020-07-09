@@ -46,7 +46,7 @@ class config_NN (config_prototype):
         self.Ns_scale = 2
         # Number of candidate points to pick from when selecting large gradient
         # points during adaptive sampling
-        self.Ns_cand = 1
+        self.Ns_cand = 2
         # Maximum size of batch size to use
         self.Ns_max = 8192
 
