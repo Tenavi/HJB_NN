@@ -113,7 +113,7 @@ class problem_prototype:
             PF = - P @ F
             dPdt = PF.T + PF - Q + P @ GRG @ P
             return dPdt.flatten()
-        SOL = solve_ivp(riccati_ODE, [t1, 0.], P1.flatten(),
+        SOL = solve_ivp(riccati_ODE, [self.t1, 0.], P1.flatten(),
             dense_output=True, method='LSODA', rtol=1e-04)
         return SOL.sol
 

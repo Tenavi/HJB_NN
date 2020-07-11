@@ -71,7 +71,7 @@ class setup_problem(problem_prototype):
     def __init__(self):
         self.N_states = 6
         self.N_controls = 3
-        t1 = 20.
+        self.t1 = 20.
 
         self.Jinv = np.diag([1/2, 1/3, 1/4])
         self.B = np.array([[1., 1/20, 1/10],[1/15, 1., 1/10],[1/10, 1/15, 1.]])

@@ -72,7 +72,7 @@ class setup_problem(problem_prototype):
     def __init__(self):
         self.N_states = 20
         self.N_controls = 1
-        t1 = 8.
+        self.t1 = 8.
 
         self.nu = 0.2
         self.alpha = 1.5
