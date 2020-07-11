@@ -39,7 +39,7 @@ class hjb_network:
 
         N_states = problem.N_states
         N_controls = problem.N_controls
-        self.t1 = config.t1
+        self.t1 = problem.t1
 
         # Initializes the NN parameters
         self.weights, self.biases = self.initialize_net(config.layers, parameters)
@@ -80,14 +80,19 @@ class hjb_network:
             )
 
         # Error metrics
-        self.MAE = tf.reduce_mean(tf.abs(self.V_pred - self.V_tf))
-        self.grad_MRL2 = tf.reduce_mean(tf.sqrt(
-            tf.reduce_sum((self.dVdX - self.A_tf)**2, axis=0) / (
-            1e-04 + tf.reduce_sum(self.A_tf**2, axis=0)))
+        self.RMAE = tf.reduce_mean(
+            tf.abs(self.V_pred - self.V_tf)) / tf.reduce_mean(
+            tf.abs(self.V_tf)
             )
-        self.ctrl_MRL2 = tf.reduce_mean(tf.sqrt(
-            tf.reduce_sum((self.U - self.U_tf)**2, axis=0) / (
-            1e-04 + tf.reduce_sum(self.U_tf**2, axis=0)))
+        self.grad_RML2 = tf.reduce_mean(
+            tf.sqrt(tf.reduce_sum((self.dVdX - self.A_tf)**2, axis=0))
+            ) / tf.reduce_mean(
+            tf.sqrt(tf.reduce_sum(self.A_tf**2, axis=0))
+            )
+        self.ctrl_RML2 = tf.reduce_mean(
+            tf.sqrt(tf.reduce_sum((self.U - self.U_tf)**2, axis=0))
+            ) / tf.reduce_mean(
+            tf.sqrt(tf.reduce_sum(self.U_tf**2, axis=0))
             )
 
         self.sess = tf.Session()
@@ -212,6 +217,7 @@ class hjb_network:
         Ns_C = self.config.Ns_scale
         Ns_cand = self.config.Ns_cand
         Ns_max = self.config.Ns_max
+        Ns_sub_size = self.config.Ns_sub_size
 
         conv_tol = self.config.conv_tol
 
@@ -247,31 +253,40 @@ class hjb_network:
         round_iters = []
 
         errors_to_track = [train_err, train_grad_err, train_ctrl_err]
-        fetches = [[self.MAE, self.grad_MRL2, self.ctrl_MRL2]]
+        fetches = [[self.RMAE, self.grad_RML2, self.ctrl_RML2]]
 
         # ----------------------------------------------------------------------
 
         for round in range(1,max_rounds+1):
             # Generates new data if needed
             if self.Ns > train_data['X'].shape[1]:
-                new_data = self.generate_data(
-                    self.Ns - train_data['X'].shape[1], Ns_cand)
-                for key in new_data.keys():
-                    train_data.update({
-                        key: np.hstack((train_data[key], new_data[key]))
-                        })
+                if round > 1:
+                    new_data = self.generate_data(
+                        self.Ns - train_data['X'].shape[1], Ns_cand)
+                    for key in new_data.keys():
+                        train_data.update({
+                            key: np.hstack((train_data[key], new_data[key]))
+                            })
+                else:
+                    self.Ns = train_data['X'].shape[1]
 
+            # Avoid training on the entire training set
+            # This speeds up training and reduces overfitting
             self.Ns = np.minimum(self.Ns, Ns_max)
+            if round > 1:
+                _Ns = int(self.Ns * Ns_sub_size)
+            else:
+                _Ns = self.Ns
 
             print('Optimization round', round, ':')
-            print('Batch size =', self.Ns,
+            print('Batch size =', _Ns,
                   ', gradient weight = %1.1e' % (weight_A[round-1]),
                   ', control weight = %1.1e' % (weight_U[round-1]))
 
             # ------------------------------------------------------------------
 
             idx = np.random.choice(
-                train_data['X'].shape[1], self.Ns, replace=False)
+                train_data['X'].shape[1], _Ns, replace=False)
 
             tf_dict = {self.t_tf: train_data['t'][:,idx],
                        self.X_tf: train_data['X'][:,idx],
@@ -305,26 +320,26 @@ class hjb_network:
 
             # If didn't track training errors, compute them now
             for error,fetch in zip((train_err,train_grad_err,train_ctrl_err),
-                               (self.MAE, self.grad_MRL2, self.ctrl_MRL2)):
+                               (self.RMAE, self.grad_RML2, self.ctrl_RML2)):
                 if error not in errors_to_track:
                     error.append(self.sess.run(fetch, tf_dict))
 
             round_iters.append(len(train_err))
 
             val_errs = self.sess.run(
-                (self.MAE, self.grad_MRL2, self.ctrl_MRL2), val_data)
+                (self.RMAE, self.grad_RML2, self.ctrl_RML2), val_data)
 
             val_err.append(val_errs[0])
             val_grad_err.append(val_errs[1])
             val_ctrl_err.append(val_errs[2])
 
             print('')
-            print('Training MAE error = %1.1e' % (train_err[-1]))
-            print('Validation MAE error = %1.1e' % (val_err[-1]))
-            print('Training grad. MRL2 error = %1.1e' % (train_grad_err[-1]))
-            print('Validation grad. MRL2 error = %1.1e' % (val_grad_err[-1]))
-            print('Training ctrl. MRL2 error = %1.1e' % (train_ctrl_err[-1]))
-            print('Validation ctrl. MRL2 error = %1.1e' % (val_ctrl_err[-1]))
+            print('Training RMA error = %1.1e' % (train_err[-1]))
+            print('Validation RMA error = %1.1e' % (val_err[-1]))
+            print('Training grad. RML2 error = %1.1e' % (train_grad_err[-1]))
+            print('Validation grad. RML2 error = %1.1e' % (val_grad_err[-1]))
+            print('Training ctrl. RML2 error = %1.1e' % (train_ctrl_err[-1]))
+            print('Validation ctrl. RML2 error = %1.1e' % (val_ctrl_err[-1]))
 
             # ------------------------------------------------------------------
 
@@ -332,10 +347,11 @@ class hjb_network:
                 if self.convergence_test(tf_dict,
                                          optimizer.grad_eval,
                                          epsilon=conv_tol,
-                                         Ns_sub=int(self.Ns/8),
+                                         Ns_sub=int(_Ns/4),
                                          C=Ns_C):
                     if round >= min_rounds:
-                        print('Convergence test satisfied, stopping optimization.')
+                        print('Convergence test satisfied with', self.Ns,
+                            'data, stopping optimization.')
                         break
                     else:
                         print('Convergence test satisfied, but have not trained for minimum number of rounds.')
@@ -347,6 +363,7 @@ class hjb_network:
 
     def _train_L_BFGS_B(self,
                         tf_dict,
+                        val_dict=None,
                         optimizer=None,
                         errors_to_track=[],
                         fetches=[],
@@ -369,16 +386,28 @@ class hjb_network:
             self.grads_list = optimizer._grads_list
             self.packed_loss_grad = optimizer._packed_loss_grad
 
-        def callback(fetches):
-            for error_list, fetch in zip(errors_to_track, fetches):
-                error_list.append(fetch)
+        if val_dict is None:
+            def callback(fetches):
+                for error_list, fetch in zip(errors_to_track, fetches):
+                    error_list.append(fetch)
 
-        optimizer.minimize(self.sess, feed_dict=tf_dict,
-                           fetches=fetches, loss_callback=callback)
+            optimizer.minimize(self.sess, feed_dict=tf_dict,
+                               fetches=fetches, loss_callback=callback)
+        else:
+            def callback(packed_vars):
+                # For getting validation error at each iteration. Slow.
+                var_vals = [packed_vars[packing_slice] for packing_slice in optimizer._packing_slices]
+                self.sess.run(optimizer._var_updates, dict(zip(optimizer._update_placeholders, var_vals)))
+
+                for error_list, fetch in zip(errors_to_track, fetches):
+                    error_list.append(self.sess.run(fetch, val_dict))
+
+            optimizer.minimize(self.sess, feed_dict=tf_dict,
+                               step_callback=callback)
 
         return optimizer
 
-    def convergence_test(self, tf_dict, sample_grad, epsilon, Ns_sub=1024, C=2):
+    def convergence_test(self, tf_dict, sample_grad, epsilon, Ns_sub, C=4):
         '''Convergence test as described in the paper.'''
         print('')
         print('Running convergence test...')
@@ -386,7 +415,8 @@ class hjb_network:
         sample_grad = np.linalg.norm(sample_grad, ord=1)
 
         # Calculates sample variance for (a subsample of) the batch
-        idx = np.random.choice(self.Ns, Ns_sub, replace=False)
+        idx = np.random.choice(
+            tf_dict[self.X_tf].shape[1], Ns_sub, replace=False)
 
         tf_dict.update({
             self.t_tf: tf_dict[self.t_tf][:,idx],
@@ -417,7 +447,7 @@ class hjb_network:
 
         print('sample variance = %1.4e' % (sample_var))
         print('sample gradient = %1.4e' % (sample_grad))
-        print('epsilon = %1.4e' % (epsilon), ', Ns_sub =', Ns_sub)
+        print('epsilon = %1.1e, Ns = %d, Ns_sub = %d' % (epsilon, self.Ns, Ns_sub))
 
         if sample_var <= epsilon * Ns_sub * sample_grad:
             # Convergence condition satisfied
@@ -453,6 +483,8 @@ class hjb_network:
         # ----------------------------------------------------------------------
 
         while X_OUT.shape[1] < Nd:
+            print('Solving BVP #', Ns_sol+1, '...', end='\r')
+
             # Picks random sample with largest gradient
             X0 = (self.ub - self.lb) * np.random.rand(N_states, Ns_cand) + self.lb
             max_idx = self.get_largest_A(np.zeros((1, Ns_cand)), X0, 1)
@@ -474,7 +506,7 @@ class hjb_network:
 
                 X_aug_guess = np.vstack((SOL.y, A_guess, V_guess))
                 SOL = solve_bvp(self.problem.aug_dynamics, bc, SOL.t, X_aug_guess,
-                                verbose=1,
+                                verbose=0,
                                 tol=self.config.data_tol,
                                 max_nodes=self.config.max_nodes)
                 if not SOL.success:
@@ -583,6 +615,7 @@ class hjb_network_t0(hjb_network):
         Ns_C = self.config.Ns_scale
         Ns_cand = self.config.Ns_cand
         Ns_max = self.config.Ns_max
+        Ns_sub_size = self.config.Ns_sub_size
 
         conv_tol = self.config.conv_tol
 
@@ -618,31 +651,40 @@ class hjb_network_t0(hjb_network):
         round_iters = []
 
         errors_to_track = [train_err, train_grad_err, train_ctrl_err]
-        fetches = [[self.MAE, self.grad_MRL2, self.ctrl_MRL2]]
+        fetches = [[self.RMAE, self.grad_RML2, self.ctrl_RML2]]
 
         # ----------------------------------------------------------------------
 
         for round in range(1,max_rounds+1):
             # Generates new data if needed
             if self.Ns > train_data['X'].shape[1]:
-                new_data = self.generate_data(
-                    self.Ns - train_data['X'].shape[1], Ns_cand)
-                for key in new_data.keys():
-                    train_data.update({
-                        key: np.hstack((train_data[key], new_data[key]))
-                        })
+                if round > 1:
+                    new_data = self.generate_data(
+                        self.Ns - train_data['X'].shape[1], Ns_cand)
+                    for key in new_data.keys():
+                        train_data.update({
+                            key: np.hstack((train_data[key], new_data[key]))
+                            })
+                else:
+                    self.Ns = train_data['X'].shape[1]
 
+            # Avoid training on the entire training set
+            # This speeds up training and reduces overfitting
             self.Ns = np.minimum(self.Ns, Ns_max)
+            if round > 1:
+                _Ns = int(self.Ns * Ns_sub_size)
+            else:
+                _Ns = self.Ns
 
             print('Optimization round', round, ':')
-            print('Batch size =', self.Ns,
+            print('Batch size =', _Ns,
                   ', gradient weight = %1.1e' % (weight_A[round-1]),
                   ', control weight = %1.1e' % (weight_U[round-1]))
 
             # ------------------------------------------------------------------
 
             idx = np.random.choice(
-                train_data['X'].shape[1], self.Ns, replace=False)
+                train_data['X'].shape[1], _Ns, replace=False)
 
             tf_dict = {self.X_tf: train_data['X'][:,idx],
                        self.A_tf: train_data['A'][:,idx],
@@ -676,26 +718,26 @@ class hjb_network_t0(hjb_network):
 
             # If didn't track training errors, compute them now
             for error,fetch in zip((train_err,train_grad_err,train_ctrl_err),
-                               (self.MAE, self.grad_MRL2, self.ctrl_MRL2)):
+                               (self.RMAE, self.grad_RML2, self.ctrl_RML2)):
                 if error not in errors_to_track:
                     error.append(self.sess.run(fetch, tf_dict))
 
             round_iters.append(len(train_err))
 
             val_errs = self.sess.run(
-                (self.MAE, self.grad_MRL2, self.ctrl_MRL2), val_data)
+                (self.RMAE, self.grad_RML2, self.ctrl_RML2), val_data)
 
             val_err.append(val_errs[0])
             val_grad_err.append(val_errs[1])
             val_ctrl_err.append(val_errs[2])
 
             print('')
-            print('Training MAE error = %1.1e' % (train_err[-1]))
-            print('Validation MAE error = %1.1e' % (val_err[-1]))
-            print('Training grad. MRL2 error = %1.1e' % (train_grad_err[-1]))
-            print('Validation grad. MRL2 error = %1.1e' % (val_grad_err[-1]))
-            print('Training ctrl. MRL2 error = %1.1e' % (train_ctrl_err[-1]))
-            print('Validation ctrl. MRL2 error = %1.1e' % (val_ctrl_err[-1]))
+            print('Training RMA error = %1.1e' % (train_err[-1]))
+            print('Validation RMA error = %1.1e' % (val_err[-1]))
+            print('Training grad. RML2 error = %1.1e' % (train_grad_err[-1]))
+            print('Validation grad. RML2 error = %1.1e' % (val_grad_err[-1]))
+            print('Training ctrl. RML2 error = %1.1e' % (train_ctrl_err[-1]))
+            print('Validation ctrl. RML2 error = %1.1e' % (val_ctrl_err[-1]))
 
             # ------------------------------------------------------------------
 
@@ -703,10 +745,11 @@ class hjb_network_t0(hjb_network):
                 if self.convergence_test(tf_dict,
                                          optimizer.grad_eval,
                                          epsilon=conv_tol,
-                                         Ns_sub=int(self.Ns/8),
+                                         Ns_sub=int(_Ns/2),
                                          C=Ns_C):
                     if round >= min_rounds:
-                        print('Convergence test satisfied, stopping optimization.')
+                        print('Convergence test satisfied with', self.Ns,
+                            'data, stopping optimization.')
                         break
                     else:
                         print('Convergence test satisfied, but have not trained for minimum number of rounds.')
@@ -716,7 +759,7 @@ class hjb_network_t0(hjb_network):
                   val_err, val_grad_err, val_ctrl_err)
         return round_iters, errors
 
-    def convergence_test(self, tf_dict, sample_grad, epsilon, Ns_sub=1024, C=2):
+    def convergence_test(self, tf_dict, sample_grad, epsilon, Ns_sub, C=4):
         '''Convergence test as described in the paper.'''
         print('')
         print('Running convergence test...')
@@ -724,7 +767,8 @@ class hjb_network_t0(hjb_network):
         sample_grad = np.linalg.norm(sample_grad, ord=1)
 
         # Calculates sample variance for (a subsample of) the batch
-        idx = np.random.choice(self.Ns, Ns_sub, replace=False)
+        idx = np.random.choice(
+            tf_dict[self.X_tf].shape[1], Ns_sub, replace=False)
 
         tf_dict.update({
             self.X_tf: tf_dict[self.X_tf][:,idx],
@@ -749,7 +793,7 @@ class hjb_network_t0(hjb_network):
 
         print('sample variance = %1.1e' % (sample_var))
         print('sample gradient = %1.1e' % (sample_grad))
-        print('epsilon = %1.1e' % (epsilon), ', Ns_sub =', Ns_sub)
+        print('epsilon = %1.1e, Ns = %d, Ns_sub = %d' % (epsilon, self.Ns, Ns_sub))
 
         if sample_var <= epsilon * Ns_sub * sample_grad:
             # Convergence condition satisfied
@@ -774,14 +818,16 @@ class hjb_network_t0(hjb_network):
 
         N_states = self.problem.N_states
 
-        X_OUT = np.empty((N_states,0))
-        A_OUT = np.empty((N_states,0))
-        V_OUT = np.empty((1,0))
+        X_OUT = np.empty((N_states,Nd))
+        A_OUT = np.empty((N_states,Nd))
+        V_OUT = np.empty((1,Nd))
 
         Ns_sol = 0
         start_time = time.time()
 
-        while X_OUT.shape[1] < Nd:
+        while Ns_sol < Nd:
+            print('Solving BVP #', Ns_sol+1, 'of', Nd, '...', end='\r')
+
             # Picks random sample with largest gradient
             X0 = (self.ub - self.lb) * np.random.rand(N_states, Ns_cand) + self.lb
             max_idx = self.get_largest_A(np.zeros((1, Ns_cand)), X0, 1)
@@ -803,24 +849,24 @@ class hjb_network_t0(hjb_network):
 
                 X_aug_guess = np.vstack((SOL.y, A_guess, V_guess))
                 SOL = solve_bvp(self.problem.aug_dynamics, bc, SOL.t, X_aug_guess,
-                                verbose=1,
+                                verbose=0,
                                 tol=self.config.data_tol,
                                 max_nodes=self.config.max_nodes)
                 if not SOL.success:
                     warnings.warn(Warning())
 
-                Ns_sol += 1
                 V = SOL.y[-1:] + self.problem.terminal_cost(SOL.y[:N_states,-1])
 
-                X_OUT = np.hstack((X_OUT, SOL.y[:N_states,0:1]))
-                A_OUT = np.hstack((A_OUT, SOL.y[N_states:2*N_states,0:1]))
-                V_OUT = np.hstack((V_OUT, V[:,0:1]))
+                X_OUT[:,Ns_sol] = SOL.y[:N_states,0]
+                A_OUT[:,Ns_sol] = SOL.y[N_states:2*N_states,0]
+                V_OUT[:,Ns_sol] = V[:,0]
+
+                Ns_sol += 1
 
             except Warning:
                 pass
 
-        print('Generated', X_OUT.shape[1], 'data from', Ns_sol,
-            'BVP solutions in %.1f' % (time.time() - start_time), 'sec')
+        print('Generated', Ns_sol, 'data in %.1f' % (time.time() - start_time), 'sec')
 
         data = {'X': X_OUT, 'A': A_OUT, 'V': V_OUT,
                 'U': self.problem.U_star(np.vstack((X_OUT, A_OUT)))

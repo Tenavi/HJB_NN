@@ -26,7 +26,7 @@ model = hjb_network(problem, scaling, config, parameters)
 
 # Initializes some parameters
 
-t1 = config.t1
+t1 = problem.t1
 N_states = problem.N_states
 
 dt = config.dt

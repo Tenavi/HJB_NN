@@ -2,7 +2,7 @@ import numpy as np
 from examples.problem_def_template import config_prototype, problem_prototype
 
 class config_NN (config_prototype):
-    def __init__(self, N_states, time_dependent):
+    def __init__(self, N_states, t1, time_dependent):
         N_layers = 3
         N_neurons = 64
         self.layers = self.build_layers(N_states,
@@ -12,17 +12,15 @@ class config_NN (config_prototype):
 
         self.random_seeds = {'train': None}
 
-        self.ODE_solver = 'RK23'
+        self.ODE_solver = 'DOP853'
         # Accuracy level of BVP data
         self.data_tol = 1e-05
         # Max number of nodes to use in BVP
         self.max_nodes = 5000
-        # Time horizon
-        self.t1 = 20.
 
         # Time subintervals to use in time marching
         Nt = 8
-        self.tseq = np.linspace(0., self.t1, Nt+1)[1:]
+        self.tseq = np.linspace(0., t1, Nt+1)[1:]
 
         # Time step for integration and sampling
         self.dt = 1e-01
@@ -49,18 +47,20 @@ class config_NN (config_prototype):
         self.Ns_cand = 2
         # Maximum size of batch size to use
         self.Ns_max = 8192
+        # Portion of data set size to use after the first round
+        self.Ns_sub_size = 1/2
 
         # Convergence tolerance parameter (see paper)
-        self.conv_tol = 1e-03
+        self.conv_tol = 2.*1e-03
 
         # maximum and minimum number of training rounds
         self.max_rounds = 1
         self.min_rounds = 1
 
         # List or array of weights on gradient term, length = max_rounds
-        self.weight_A = [10.]
+        self.weight_A = [10.]*self.max_rounds
         # List or array of weights on control learning term, not used in paper
-        self.weight_U = [0.]
+        self.weight_U = [0.]*self.max_rounds
 
         # Dictionary of lists or arrays of options to be passed to L-BFGS-B
         # The length of each list should be = max_rounds
@@ -71,7 +71,7 @@ class setup_problem(problem_prototype):
     def __init__(self):
         self.N_states = 6
         self.N_controls = 3
-        self.t1 = 20.
+        t1 = 20.
 
         self.Jinv = np.diag([1/2, 1/3, 1/4])
         self.B = np.array([[1., 1/20, 1/10],[1/15, 1., 1/10],[1/10, 1/15, 1.]])

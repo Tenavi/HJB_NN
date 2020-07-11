@@ -59,7 +59,7 @@ for i in range(Ns):
     try:
         ##### Integrates the closed-loop system (NN controller) #####
 
-        SOL = solve_ivp(problem.dynamics, [0., config.t1], X0,
+        SOL = solve_ivp(problem.dynamics, [0., problem.t1], X0,
                         method=config.ODE_solver,
                         args=(model.eval_U,),
                         rtol=1e-04)

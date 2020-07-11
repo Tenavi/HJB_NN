@@ -7,7 +7,7 @@ import numpy as np
 from scipy.integrate import cumtrapz, solve_ivp
 
 class config_prototype:
-    def __init__(self, N_states, time_dependent):
+    def __init__(self, N_states, t1, time_dependent):
         '''Class defining problem and training parameters.'''
         N_layers = 3
         N_neurons = 64
@@ -23,12 +23,10 @@ class config_prototype:
         self.data_tol = 1e-05
         # Max number of nodes to use in BVP
         self.max_nodes = 5000
-        # Time horizon
-        self.t1 = 10.
 
         # Time subintervals to use in time marching
         Nt = 8
-        self.tseq = np.linspace(0., self.t1, Nt+1)[1:]
+        self.tseq = np.linspace(0., t1, Nt+1)[1:]
 
         # Time step for integration and sampling
         self.dt = 1e-02
@@ -55,18 +53,20 @@ class config_prototype:
         self.Ns_cand = 2
         # Maximum size of batch size to use
         self.Ns_max = 32768
+        # Portion of data set size to use after the first round
+        self.Ns_sub_size = 1/2
 
         # Convergence tolerance parameter (see paper)
-        self.conv_tol = 1e-03
+        self.conv_tol = 2.*1e-03
 
         # maximum and minimum number of training rounds
         self.max_rounds = 1
         self.min_rounds = 1
 
         # List or array of weights on gradient term, length = max_rounds
-        self.weight_A = np.ones(self.max_rounds)
+        self.weight_A = [1.]*self.max_rounds
         # List or array of weights on control learning term, not used in paper
-        self.weight_U = np.zeros(self.max_rounds)
+        self.weight_U = [0.]*self.max_rounds
 
         # Dictionary of lists or arrays of options to be passed to L-BFGS-B
         # The length of each list should be = max_rounds
@@ -113,7 +113,7 @@ class problem_prototype:
             PF = - P @ F
             dPdt = PF.T + PF - Q + P @ GRG @ P
             return dPdt.flatten()
-        SOL = solve_ivp(riccati_ODE, [self.t1, 0.], P1.flatten(),
+        SOL = solve_ivp(riccati_ODE, [t1, 0.], P1.flatten(),
             dense_output=True, method='LSODA', rtol=1e-04)
         return SOL.sol
 
