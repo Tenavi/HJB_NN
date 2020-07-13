@@ -12,7 +12,7 @@ class config_NN (config_prototype):
 
         self.random_seeds = {'train': None}
 
-        self.ODE_solver = 'DOP853'
+        self.ODE_solver = 'RK23'
         # Accuracy level of BVP data
         self.data_tol = 1e-05
         # Max number of nodes to use in BVP
@@ -48,10 +48,10 @@ class config_NN (config_prototype):
         # Maximum size of batch size to use
         self.Ns_max = 8192
         # Portion of data set size to use after the first round
-        self.Ns_sub_size = 1/2
+        self.Ns_sub_size = 1
 
         # Convergence tolerance parameter (see paper)
-        self.conv_tol = 2.*1e-03
+        self.conv_tol = 1.5*1e-03
 
         # maximum and minimum number of training rounds
         self.max_rounds = 1

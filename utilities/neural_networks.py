@@ -363,7 +363,6 @@ class hjb_network:
 
     def _train_L_BFGS_B(self,
                         tf_dict,
-                        val_dict=None,
                         optimizer=None,
                         errors_to_track=[],
                         fetches=[],
@@ -386,24 +385,12 @@ class hjb_network:
             self.grads_list = optimizer._grads_list
             self.packed_loss_grad = optimizer._packed_loss_grad
 
-        if val_dict is None:
-            def callback(fetches):
-                for error_list, fetch in zip(errors_to_track, fetches):
-                    error_list.append(fetch)
+        def callback(fetches):
+            for error_list, fetch in zip(errors_to_track, fetches):
+                error_list.append(fetch)
 
-            optimizer.minimize(self.sess, feed_dict=tf_dict,
-                               fetches=fetches, loss_callback=callback)
-        else:
-            def callback(packed_vars):
-                # For getting validation error at each iteration. Slow.
-                var_vals = [packed_vars[packing_slice] for packing_slice in optimizer._packing_slices]
-                self.sess.run(optimizer._var_updates, dict(zip(optimizer._update_placeholders, var_vals)))
-
-                for error_list, fetch in zip(errors_to_track, fetches):
-                    error_list.append(self.sess.run(fetch, val_dict))
-
-            optimizer.minimize(self.sess, feed_dict=tf_dict,
-                               step_callback=callback)
+        optimizer.minimize(self.sess, feed_dict=tf_dict,
+                           fetches=fetches, loss_callback=callback)
 
         return optimizer
 
