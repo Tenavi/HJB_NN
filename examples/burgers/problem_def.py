@@ -48,11 +48,9 @@ class config_NN (config_prototype):
         self.Ns_cand = 2
         # Maximum size of batch size to use
         self.Ns_max = 32768
-        # Portion of data set size to use after the first round
-        self.Ns_sub_size = 1/2
 
         # Convergence tolerance parameter (see paper)
-        self.conv_tol = 2.*1e-03
+        self.conv_tol = 1e-03
 
         # maximum and minimum number of training rounds
         self.max_rounds = 1
@@ -70,7 +68,7 @@ class config_NN (config_prototype):
 
 class setup_problem(problem_prototype):
     def __init__(self):
-        self.N_states = 20
+        self.N_states = 10
         self.N_controls = 1
         self.t1 = 8.
 

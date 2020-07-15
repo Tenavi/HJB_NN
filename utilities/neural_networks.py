@@ -217,7 +217,6 @@ class hjb_network:
         Ns_C = self.config.Ns_scale
         Ns_cand = self.config.Ns_cand
         Ns_max = self.config.Ns_max
-        Ns_sub_size = self.config.Ns_sub_size
 
         conv_tol = self.config.conv_tol
 
@@ -272,11 +271,7 @@ class hjb_network:
 
             # Avoid training on the entire training set
             # This speeds up training and reduces overfitting
-            self.Ns = np.minimum(self.Ns, Ns_max)
-            if round > 1:
-                _Ns = int(self.Ns * Ns_sub_size)
-            else:
-                _Ns = self.Ns
+            _Ns = np.minimum(self.Ns, Ns_max)
 
             print('Optimization round', round, ':')
             print('Batch size =', _Ns,
@@ -374,7 +369,6 @@ class hjb_network:
         '''
         from utilities.optimize import ScipyOptimizerInterface
 
-        # Minimizes with L-BFGS
         if optimizer is None:
             default_opts = {'maxcor': 15, 'ftol': 1e-11, 'gtol': 1e-06,
                             'iprint': 95, 'maxfun': 100000, 'maxiter': 100000}
@@ -384,6 +378,8 @@ class hjb_network:
                 options={**default_opts, **options})
             self.grads_list = optimizer._grads_list
             self.packed_loss_grad = optimizer._packed_loss_grad
+        else:
+            optimizer.optimizer_kwargs['options'].update(options)
 
         def callback(fetches):
             for error_list, fetch in zip(errors_to_track, fetches):
@@ -602,7 +598,6 @@ class hjb_network_t0(hjb_network):
         Ns_C = self.config.Ns_scale
         Ns_cand = self.config.Ns_cand
         Ns_max = self.config.Ns_max
-        Ns_sub_size = self.config.Ns_sub_size
 
         conv_tol = self.config.conv_tol
 
@@ -657,11 +652,7 @@ class hjb_network_t0(hjb_network):
 
             # Avoid training on the entire training set
             # This speeds up training and reduces overfitting
-            self.Ns = np.minimum(self.Ns, Ns_max)
-            if round > 1:
-                _Ns = int(self.Ns * Ns_sub_size)
-            else:
-                _Ns = self.Ns
+            _Ns = np.minimum(self.Ns, Ns_max)
 
             print('Optimization round', round, ':')
             print('Batch size =', _Ns,

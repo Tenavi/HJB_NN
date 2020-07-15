@@ -53,8 +53,6 @@ class config_prototype:
         self.Ns_cand = 2
         # Maximum size of batch size to use
         self.Ns_max = 32768
-        # Portion of data set size to use after the first round
-        self.Ns_sub_size = 1/2
 
         # Convergence tolerance parameter (see paper)
         self.conv_tol = 2.*1e-03
