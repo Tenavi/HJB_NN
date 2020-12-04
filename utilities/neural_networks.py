@@ -1,6 +1,6 @@
 '''
 This script contains the classes implementing neural networks modeling V(t,x)
-and V(0,x). These are hjb_network and hjb_network_t0, respectively.
+and V(0,x). These are HJBnet and HJBnet_t0, respectively.
 '''
 
 import numpy as np
@@ -9,7 +9,7 @@ from scipy import stats
 from scipy.integrate import solve_ivp, solve_bvp
 import time
 
-class hjb_network:
+class HJBnet:
     def __init__(self, problem, scaling, config, parameters=None):
         '''Class implementing a NN for modeling time-dependent value functions.
         problem: instance of a problem class
@@ -187,25 +187,20 @@ class hjb_network:
         else:
             return self.sess.run((self.V_pred, self.dVdX), feed_dict)
 
-    def train(self, train_data, val_data):
+    def train(self, train_data, test_data):
         '''Implements training with L-BFGS.'''
 
-        train_data.update({
-            'U': self.problem.U_star(np.vstack((train_data['X'], train_data['A'])))
-            })
         train_data.update({
             'A_scaled': 2.*(train_data['A'] - self.A_lb)/(self.A_ub - self.A_lb) - 1.,
             'U_scaled': 2.*(train_data['U'] - self.U_lb)/(self.U_ub - self.U_lb) - 1.,
             'V_scaled': 2.*(train_data['V'] - self.V_min)/(self.V_max - self.V_min) - 1.
             })
 
-        val_data = {self.t_tf: val_data.pop('t'), self.X_tf: val_data.pop('X'),
-                    self.V_tf: val_data.pop('V'), self.A_tf: val_data.pop('A')}
-        val_data.update({
-            self.U_tf: self.problem.U_star(
-                np.vstack((val_data[self.X_tf], val_data[self.A_tf]))
-                )
-            })
+        test_data = {
+            self.t_tf: test_data.pop('t'), self.X_tf: test_data.pop('X'),
+            self.V_tf: test_data.pop('V'), self.A_tf: test_data.pop('A'),
+            self.U_tf: test_data.pop('U')
+            }
 
         # ----------------------------------------------------------------------
 
@@ -245,9 +240,9 @@ class hjb_network:
         train_grad_err = []
         train_ctrl_err = []
 
-        val_err = []
-        val_grad_err = []
-        val_ctrl_err = []
+        test_err = []
+        test_grad_err = []
+        test_ctrl_err = []
 
         round_iters = []
 
@@ -321,29 +316,29 @@ class hjb_network:
 
             round_iters.append(len(train_err))
 
-            val_errs = self.sess.run(
-                (self.RMAE, self.grad_RML2, self.ctrl_RML2), val_data)
+            test_errs = self.sess.run(
+                (self.RMAE, self.grad_RML2, self.ctrl_RML2), test_data)
 
-            val_err.append(val_errs[0])
-            val_grad_err.append(val_errs[1])
-            val_ctrl_err.append(val_errs[2])
+            test_err.append(test_errs[0])
+            test_grad_err.append(test_errs[1])
+            test_ctrl_err.append(test_errs[2])
 
             print('')
             print('Training RMA error = %1.1e' % (train_err[-1]))
-            print('Validation RMA error = %1.1e' % (val_err[-1]))
+            print('Test RMA error = %1.1e' % (test_err[-1]))
             print('Training grad. RML2 error = %1.1e' % (train_grad_err[-1]))
-            print('Validation grad. RML2 error = %1.1e' % (val_grad_err[-1]))
+            print('Test grad. RML2 error = %1.1e' % (test_grad_err[-1]))
             print('Training ctrl. RML2 error = %1.1e' % (train_ctrl_err[-1]))
-            print('Validation ctrl. RML2 error = %1.1e' % (val_ctrl_err[-1]))
+            print('Test ctrl. RML2 error = %1.1e' % (test_ctrl_err[-1]))
 
             # ------------------------------------------------------------------
 
             if max_rounds > 1:
                 if self.convergence_test(tf_dict,
                                          optimizer.grad_eval,
-                                         epsilon=conv_tol,
-                                         Ns_sub=int(_Ns/4),
-                                         C=Ns_C):
+                                         conv_tol=conv_tol,
+                                         Ns_sub=int(self.Ns/16),
+                                         s=Ns_C):
                     if round >= min_rounds:
                         print('Convergence test satisfied with', self.Ns,
                             'data, stopping optimization.')
@@ -353,7 +348,7 @@ class hjb_network:
                         self.Ns *= Ns_C
 
         errors = (train_err, train_grad_err, train_ctrl_err,
-                  val_err, val_grad_err, val_ctrl_err)
+                  test_err, test_grad_err, test_ctrl_err)
         return round_iters, errors
 
     def _train_L_BFGS_B(self,
@@ -390,7 +385,7 @@ class hjb_network:
 
         return optimizer
 
-    def convergence_test(self, tf_dict, sample_grad, epsilon, Ns_sub, C=4):
+    def convergence_test(self, tf_dict, sample_grad, conv_tol, Ns_sub, s):
         '''Convergence test as described in the paper.'''
         print('')
         print('Running convergence test...')
@@ -424,22 +419,22 @@ class hjb_network:
                 })
 
         sample_var = np.var(sample_var, axis=0, ddof=1, dtype=np.float64)
-        sample_var = sample_var.sum()
+        sample_var = np.sqrt(sample_var.sum())
 
         # ----------------------------------------------------------------------
 
-        print('sample variance = %1.4e' % (sample_var))
-        print('sample gradient = %1.4e' % (sample_grad))
-        print('epsilon = %1.1e, Ns = %d, Ns_sub = %d' % (epsilon, self.Ns, Ns_sub))
+        print('sample gradient = %1.1e' % (sample_grad))
+        print('sample gradient RMSE = %1.1e' % (sample_var / np.sqrt(Ns_sub)))
+        print('k = %1.2f, Ns = %d' % (conv_tol, self.Ns))
 
-        if sample_var <= epsilon * Ns_sub * sample_grad:
+        if sample_var <= conv_tol * np.sqrt(Ns_sub) * sample_grad:
             # Convergence condition satisfied
             return True
         else:
-            Ns_min = int(sample_var / (epsilon * sample_grad))
+            Ns_min = int((sample_var / (conv_tol * sample_grad))**2)
             if self.Ns >= Ns_min:
                 Ns_min = int(self.Ns * (Ns_min / Ns_sub))
-            self.Ns = np.minimum(C*self.Ns, Ns_min)
+            self.Ns = np.minimum(s*self.Ns, Ns_min)
 
             print('Convergence test failed, estimated minimum batch size:', self.Ns)
             return False
@@ -519,7 +514,7 @@ class hjb_network:
             })
         return data
 
-class hjb_network_t0(hjb_network):
+class HJBnet_t0(HJBnet):
     def make_eval_graph(self, t, X):
         '''Builds the NN computational graph.'''
 
@@ -568,25 +563,19 @@ class hjb_network_t0(hjb_network):
         else:
             return self.sess.run((self.V_pred, self.dVdX), {self.X_tf: X})
 
-    def train(self, train_data, val_data):
+    def train(self, train_data, test_data):
         '''Implements training with L-BFGS.'''
 
-        train_data.update({
-            'U': self.problem.U_star(np.vstack((train_data['X'], train_data['A'])))
-            })
         train_data.update({
             'A_scaled': 2.*(train_data['A'] - self.A_lb)/(self.A_ub - self.A_lb) - 1.,
             'U_scaled': 2.*(train_data['U'] - self.U_lb)/(self.U_ub - self.U_lb) - 1.,
             'V_scaled': 2.*(train_data['V'] - self.V_min)/(self.V_max - self.V_min) - 1.
             })
 
-        val_data = {self.X_tf: val_data.pop('X'), self.V_tf: val_data.pop('V'),
-                    self.A_tf: val_data.pop('A')}
-        val_data.update({
-            self.U_tf: self.problem.U_star(
-                np.vstack((val_data[self.X_tf], val_data[self.A_tf]))
-                )
-            })
+        test_data = {
+            self.X_tf: test_data.pop('X'), self.V_tf: test_data.pop('V'),
+            self.A_tf: test_data.pop('A'), self.U_tf: test_data.pop('U')
+            }
 
         # ----------------------------------------------------------------------
 
@@ -626,9 +615,9 @@ class hjb_network_t0(hjb_network):
         train_grad_err = []
         train_ctrl_err = []
 
-        val_err = []
-        val_grad_err = []
-        val_ctrl_err = []
+        test_err = []
+        test_grad_err = []
+        test_ctrl_err = []
 
         round_iters = []
 
@@ -702,29 +691,29 @@ class hjb_network_t0(hjb_network):
 
             round_iters.append(len(train_err))
 
-            val_errs = self.sess.run(
-                (self.RMAE, self.grad_RML2, self.ctrl_RML2), val_data)
+            test_errs = self.sess.run(
+                (self.RMAE, self.grad_RML2, self.ctrl_RML2), test_data)
 
-            val_err.append(val_errs[0])
-            val_grad_err.append(val_errs[1])
-            val_ctrl_err.append(val_errs[2])
+            test_err.append(test_errs[0])
+            test_grad_err.append(test_errs[1])
+            test_ctrl_err.append(test_errs[2])
 
             print('')
             print('Training RMA error = %1.1e' % (train_err[-1]))
-            print('Validation RMA error = %1.1e' % (val_err[-1]))
+            print('Test RMA error = %1.1e' % (test_err[-1]))
             print('Training grad. RML2 error = %1.1e' % (train_grad_err[-1]))
-            print('Validation grad. RML2 error = %1.1e' % (val_grad_err[-1]))
+            print('Test grad. RML2 error = %1.1e' % (test_grad_err[-1]))
             print('Training ctrl. RML2 error = %1.1e' % (train_ctrl_err[-1]))
-            print('Validation ctrl. RML2 error = %1.1e' % (val_ctrl_err[-1]))
+            print('Test ctrl. RML2 error = %1.1e' % (test_ctrl_err[-1]))
 
             # ------------------------------------------------------------------
 
             if max_rounds > 1:
                 if self.convergence_test(tf_dict,
                                          optimizer.grad_eval,
-                                         epsilon=conv_tol,
-                                         Ns_sub=int(_Ns/2),
-                                         C=Ns_C):
+                                         conv_tol=conv_tol,
+                                         Ns_sub=int(self.Ns/2),
+                                         s=Ns_C):
                     if round >= min_rounds:
                         print('Convergence test satisfied with', self.Ns,
                             'data, stopping optimization.')
@@ -734,10 +723,10 @@ class hjb_network_t0(hjb_network):
                         self.Ns *= Ns_C
 
         errors = (train_err, train_grad_err, train_ctrl_err,
-                  val_err, val_grad_err, val_ctrl_err)
+                  test_err, test_grad_err, test_ctrl_err)
         return round_iters, errors
 
-    def convergence_test(self, tf_dict, sample_grad, epsilon, Ns_sub, C=4):
+    def convergence_test(self, tf_dict, sample_grad, conv_tol, Ns_sub, s):
         '''Convergence test as described in the paper.'''
         print('')
         print('Running convergence test...')
@@ -767,20 +756,22 @@ class hjb_network_t0(hjb_network):
                 })
 
         sample_var = np.var(sample_var, axis=0, ddof=1, dtype=np.float64)
-        sample_var = sample_var.sum()
+        sample_var = np.sqrt(sample_var.sum())
 
-        print('sample variance = %1.1e' % (sample_var))
+        # ----------------------------------------------------------------------
+
         print('sample gradient = %1.1e' % (sample_grad))
-        print('epsilon = %1.1e, Ns = %d, Ns_sub = %d' % (epsilon, self.Ns, Ns_sub))
+        print('sample gradient RMSE = %1.1e' % (sample_var / np.sqrt(Ns_sub)))
+        print('k = %1.2f, Ns = %d' % (conv_tol, self.Ns))
 
-        if sample_var <= epsilon * Ns_sub * sample_grad:
+        if sample_var <= conv_tol * np.sqrt(Ns_sub) * sample_grad:
             # Convergence condition satisfied
             return True
         else:
-            Ns_min = int(sample_var / (epsilon * sample_grad))
+            Ns_min = int((sample_var / (conv_tol * sample_grad))**2)
             if self.Ns >= Ns_min:
                 Ns_min = int(self.Ns * (Ns_min / Ns_sub))
-            self.Ns = np.minimum(C*self.Ns, Ns_min)
+            self.Ns = np.minimum(s*self.Ns, Ns_min)
 
             print('Convergence test failed, estimated minimum batch size:', self.Ns)
             return False

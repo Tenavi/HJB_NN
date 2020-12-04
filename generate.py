@@ -18,12 +18,12 @@ warnings.filterwarnings('error')
 
 N_states = problem.N_states
 
-# Validation or training data?
-data_type = int_input('What kind of data? Enter 0 for validation, 1 for training:')
+# Testing or training data?
+data_type = int_input('What kind of data? Enter 0 for test, 1 for training:')
 if data_type:
     data_type = 'train'
 else:
-    data_type = 'val'
+    data_type = 'test'
 
 Ns = config.Ns[data_type]
 X0_pool = problem.sample_X0(Ns)
@@ -133,14 +133,5 @@ if save_data:
                           'A': np.hstack((save_dict['A'], A_OUT)),
                           'V': np.hstack((save_dict['V'], V_OUT))})
     except:
-        U = problem.U_star(np.vstack((X_OUT, A_OUT)))
-
-        save_dict = {'lb': np.min(X_OUT, axis=1, keepdims=True),
-                     'ub': np.max(X_OUT, axis=1, keepdims=True),
-                     'A_lb': np.min(A_OUT, axis=1, keepdims=True),
-                     'A_ub': np.max(A_OUT, axis=1, keepdims=True),
-                     'U_lb': np.min(U, axis=1, keepdims=True),
-                     'U_ub': np.max(U, axis=1, keepdims=True),
-                     'V_min': np.min(V_OUT), 'V_max': np.max(V_OUT),
-                     't': t_OUT, 'X': X_OUT, 'A': A_OUT, 'V': V_OUT}
+        save_dict = {'t': t_OUT, 'X': X_OUT, 'A': A_OUT, 'V': V_OUT}
     scipy.io.savemat(save_path, save_dict)

@@ -38,7 +38,7 @@ class config_prototype:
         self.plotdims = [0,1]
 
         # Number of training trajectories
-        self.Ns = {'train': 64, 'val': 1000}
+        self.Ns = {'train': 64, 'test': 1000}
 
         ##### Options for training #####
 
@@ -55,7 +55,7 @@ class config_prototype:
         self.Ns_max = 32768
 
         # Convergence tolerance parameter (see paper)
-        self.conv_tol = 2.*1e-03
+        self.conv_tol = 0.5
 
         # maximum and minimum number of training rounds
         self.max_rounds = 1

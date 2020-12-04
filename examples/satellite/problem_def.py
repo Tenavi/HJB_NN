@@ -32,7 +32,7 @@ class config_NN (config_prototype):
         self.plotdims = [0,3]
 
         # Number of training trajectories
-        self.Ns = {'train': 64, 'val': 1000}
+        self.Ns = {'train': 64, 'test': 1000}
 
         ##### Options for training #####
 
@@ -49,10 +49,10 @@ class config_NN (config_prototype):
         self.Ns_max = 8192
 
         # Convergence tolerance parameter (see paper)
-        self.conv_tol = 1.5*1e-03
+        self.conv_tol = 0.25
 
         # maximum and minimum number of training rounds
-        self.max_rounds = 1
+        self.max_rounds = 3
         self.min_rounds = 1
 
         # List or array of weights on gradient term, length = max_rounds

@@ -68,8 +68,8 @@ def load_NN(model_path, return_stats=False):
 
     if return_stats:
         train_time = model_dict['train_time']
-        val_grad_err = model_dict['val_grad_err']
-        val_ctrl_err = model_dict['val_ctrl_err']
-        return parameters, scaling, (train_time, val_grad_err, val_ctrl_err)
+        test_grad_err = model_dict['test_grad_err']
+        test_ctrl_err = model_dict['test_ctrl_err']
+        return parameters, scaling, (train_time, test_grad_err, test_ctrl_err)
     else:
         return parameters, scaling

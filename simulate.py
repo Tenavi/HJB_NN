@@ -13,17 +13,17 @@ from utilities.other import int_input, load_NN
 from examples.choose_problem import system, problem, config, time_dependent
 
 if time_dependent:
-    from utilities.neural_networks import hjb_network
+    from utilities.neural_networks import HJBnet
     system += '/tspan'
 else:
-    from utilities.neural_networks import hjb_network_t0 as hjb_network
+    from utilities.neural_networks import HJBnet_t0 as HJBnet
     system += '/t0'
 
 # Loads pre-trained NN for control
 
 parameters, scaling = load_NN('examples/' + system + '/V_model.mat')
 
-model = hjb_network(problem, scaling, config, parameters)
+model = HJBnet(problem, scaling, config, parameters)
 
 # Initializes some parameters
 

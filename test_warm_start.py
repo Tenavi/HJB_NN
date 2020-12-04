@@ -16,19 +16,19 @@ from examples.choose_problem import system, problem, config, time_dependent
 X0_pool = scipy.io.loadmat('examples/' + system + '/X0_pool.mat')['X0']
 
 if time_dependent:
-    from utilities.neural_networks import hjb_network
+    from utilities.neural_networks import HJBnet
     system += '/tspan'
 else:
-    from utilities.neural_networks import hjb_network_t0 as hjb_network
+    from utilities.neural_networks import HJBnet_t0 as HJBnet
     system += '/t0'
 
 # Loads the pre-trained NN
 
 parameters, scaling, NN_stats = load_NN(
     'examples/' + system + '/V_model.mat', return_stats=True)
-train_time, val_grad_err, val_ctrl_err = NN_stats
+train_time, test_grad_err, test_ctrl_err = NN_stats
 
-model = hjb_network(problem, scaling, config, parameters)
+model = HJBnet(problem, scaling, config, parameters)
 
 np.seterr(over='warn', divide='warn', invalid='warn')
 warnings.filterwarnings('error')
@@ -42,8 +42,8 @@ avg_time = []
 print('')
 print('Testing NN warm start:')
 print('NN was trained in %.0f' % (train_time), 'sec')
-print('NN mean relative costate prediction error = %1.1e' % (val_grad_err))
-print('NN mean relative control prediction error = %1.1e' % (val_ctrl_err))
+print('NN mean relative costate prediction error = %1.1e' % (test_grad_err))
+print('NN mean relative control prediction error = %1.1e' % (test_ctrl_err))
 print('')
 
 # ---------------------------------------------------------------------------- #
