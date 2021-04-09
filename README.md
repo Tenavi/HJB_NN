@@ -1,6 +1,6 @@
 ## Adaptive deep learning for high-dimensional Hamilton-Jacobi-Bellman equations
 
-See the paper at [https://arxiv.org/abs/1907.05317](https://arxiv.org/abs/1907.05317v4).
+Find the [published paper here](https://doi.org/10.1137/19M1288802), or check out the [arXiv version](https://arxiv.org/abs/1907.05317).
 
 #### Software recommendations:
 
@@ -36,6 +36,6 @@ This folder contains examples of problems each in their own folder. Each of thes
 
   * neural_networks.py: auxiliary file which contains classes implementing NNs for predicting initial-time and time-dependent value functions.
 
-  * optimize.py: auxiliary file which contains interfaces to use Scipy optimizers with tensorflow, with some modifications
+  * optimize.py: auxiliary file which contains interfaces to use Scipy optimizers with TensorFlow, with some modifications
 
   * other.py: other commonly-used utility functions
